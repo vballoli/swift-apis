@@ -13,8 +13,8 @@
 // limitations under the License.
 
 fileprivate extension Tensor where Scalar: TensorFlowFloatingPoint {
-     /// Computes dropout given a probability.
-     // TODO: Remove the underscore once `droppingOut(probability:)` has been removed.
+    /// Computes dropout given a probability.
+    // TODO: Remove the underscore once `droppingOut(probability:)` has been removed.
     @differentiable(wrt: self where Scalar: Differentiable)
     func _droppingOut(probability: Double) -> Tensor {
         let noise = Tensor(randomUniform: shape)
@@ -27,9 +27,9 @@ fileprivate extension Tensor where Scalar: TensorFlowFloatingPoint {
 public extension Tensor where Scalar: TensorFlowFloatingPoint {
     /// Computes dropout given a probability.
     @available(*, deprecated, message: """
-        This API will be removed after Swift for TensorFlow 0.6.
-        For dropout, use the `Dropout` layer.
-        """)
+    This API will be removed after Swift for TensorFlow 0.6.
+    For dropout, use the `Dropout` layer.
+    """)
     @differentiable(wrt: self where Scalar: Differentiable)
     func droppingOut(probability: Double) -> Tensor {
         _droppingOut(probability: probability)
@@ -50,7 +50,7 @@ public struct Dropout<Scalar: TensorFlowFloatingPoint>: ParameterlessLayer {
     /// - Precondition: probability must be a value between 0 and 1 (inclusive). 
     public init(probability: Double) {
         precondition(0...1 ~= probability,
-            "Probability must be a value between 0 and 1 (inclusive) but is \(probability)")
+                     "Probability must be a value between 0 and 1 (inclusive) but is \(probability)")
         self.probability = probability
     }
 
@@ -66,5 +66,34 @@ public struct Dropout<Scalar: TensorFlowFloatingPoint>: ParameterlessLayer {
         case .inference:
             return input
         }
+    }
+}
+
+public struct GaussianDropout<Scalar: TensorFlowFloatingPoint>: ParameterlessLayer {
+    @noDerivative
+    public let probability: Double
+
+    @noDerivative
+    public let standardDeviation: Tensor<Scalar>
+
+    public init(probability: Double, standardDeviation: Scalar) {
+        precondition(
+            0...1 ~= probability,
+            "Probability must be a value between 0 and 1 (inclusive) but is \(probability)")
+        self.probability = probability
+        self.standardDeviation = Tensor<Scalar>(standardDeviation)
+    }
+
+    @differentiable
+    public func callAsFunction(_ input: Tensor<Scalar>) -> Tensor<Scalar> {
+        switch Context.local.learningPhase {
+        case .training:
+            let noise = Tensor<Scalar>(randomNormal: input.shape, mean: Tensor<Scalar>(0),
+                                       standardDeviation: self.standardDeviation)
+            return input + noise
+        case .inference:
+            return input
+        }
+
     }
 }
